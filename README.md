@@ -1,5 +1,7 @@
 # EV Charge Log (EV-Ladebuch) for Home Assistant
 
+Note - this ist the First test Version. I‘m allready work on it!
+
 Combines the charging sessions **evcc** records at home with the sessions you charge
 **elsewhere** (public chargers, supermarket, work …) and turns them into statistics:
 cost, average price per kWh, consumption, and a comparison against a combustion car.
