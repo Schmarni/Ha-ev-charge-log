@@ -1,0 +1,151 @@
+add_session:
+  fields:
+    location:
+      required: true
+      example: "Lidl Pirna"
+      selector:
+        text:
+    energy:
+      required: true
+      example: 23.4
+      selector:
+        number:
+          min: 0.01
+          max: 200
+          step: 0.01
+          unit_of_measurement: kWh
+          mode: box
+    cost:
+      required: true
+      example: 10.32
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    date:
+      selector:
+        datetime:
+    odometer:
+      selector:
+        number:
+          min: 0
+          max: 1000000
+          unit_of_measurement: km
+          mode: box
+    duration:
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    waiting_time:
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: min
+          mode: box
+    charge_type:
+      selector:
+        select:
+          options:
+            - "AC"
+            - "DC"
+    note:
+      selector:
+        text:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log
+
+update_session:
+  fields:
+    session_id:
+      required: true
+      example: "manual_1a2b3c4d"
+      selector:
+        text:
+    location:
+      selector:
+        text:
+    energy:
+      selector:
+        number:
+          min: 0.01
+          max: 200
+          step: 0.01
+          unit_of_measurement: kWh
+          mode: box
+    cost:
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 0.01
+          unit_of_measurement: "€"
+          mode: box
+    date:
+      selector:
+        datetime:
+    odometer:
+      selector:
+        number:
+          min: 0
+          max: 1000000
+          unit_of_measurement: km
+          mode: box
+    duration:
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    waiting_time:
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: min
+          mode: box
+    charge_type:
+      selector:
+        select:
+          options:
+            - "AC"
+            - "DC"
+    note:
+      selector:
+        text:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log
+
+delete_session:
+  fields:
+    session_id:
+      required: true
+      example: "manual_1a2b3c4d"
+      selector:
+        text:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log
+
+list_sessions:
+  fields:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log

@@ -1,0 +1,290 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EV Charge Log",
+        "description": "Connect evcc and set up the fuel car comparison.",
+        "data": {
+          "url": "evcc URL",
+          "fuel_consumption": "Fuel car consumption",
+          "fuel_price": "Fuel price",
+          "fuel_price_entity": "Fuel price sensor (optional)",
+          "start_odometer": "Odometer at start",
+          "vehicle_filter": "Vehicle filter (optional)",
+          "scan_interval": "Update interval"
+        },
+        "data_description": {
+          "url": "e.g. http://49686a9f-evcc:7070 for the evcc add-on",
+          "fuel_consumption": "Consumption of the comparison car in l/100 km.",
+          "fuel_price": "Fixed price per litre, used when no price sensor is set.",
+          "fuel_price_entity": "E.g. a Tankerkönig sensor for a live price.",
+          "start_odometer": "Distance is counted from this value.",
+          "vehicle_filter": "Comma separated parts of evcc vehicle names. Empty = all vehicles.",
+          "scan_interval": "How often evcc is polled."
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "url": "evcc URL"
+        },
+        "data_description": {
+          "url": "e.g. http://49686a9f-evcc:7070 for the evcc add-on"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach evcc at this URL."
+    },
+    "abort": {
+      "already_configured": "This evcc instance is already set up.",
+      "reconfigure_successful": "Saved."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "data": {
+          "fuel_consumption": "Fuel car consumption",
+          "fuel_price": "Fuel price",
+          "fuel_price_entity": "Fuel price sensor (optional)",
+          "start_odometer": "Odometer at start",
+          "vehicle_filter": "Vehicle filter (optional)",
+          "scan_interval": "Update interval"
+        },
+        "data_description": {
+          "fuel_consumption": "Consumption of the comparison car in l/100 km.",
+          "fuel_price": "Fixed price per litre, used when no price sensor is set.",
+          "fuel_price_entity": "E.g. a Tankerkönig sensor for a live price.",
+          "start_odometer": "Distance is counted from this value.",
+          "vehicle_filter": "Comma separated parts of evcc vehicle names. Empty = all vehicles.",
+          "scan_interval": "How often evcc is polled."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy_total": {
+        "name": "Energy total"
+      },
+      "energy_home": {
+        "name": "Energy at home"
+      },
+      "energy_external": {
+        "name": "Energy public"
+      },
+      "energy_month": {
+        "name": "Energy this month"
+      },
+      "energy_year": {
+        "name": "Energy this year"
+      },
+      "cost_total": {
+        "name": "Cost total"
+      },
+      "cost_home": {
+        "name": "Cost at home"
+      },
+      "cost_external": {
+        "name": "Cost public"
+      },
+      "cost_month": {
+        "name": "Cost this month"
+      },
+      "cost_year": {
+        "name": "Cost this year"
+      },
+      "price_avg": {
+        "name": "Average price"
+      },
+      "price_avg_home": {
+        "name": "Average price at home"
+      },
+      "price_avg_external": {
+        "name": "Average price public"
+      },
+      "fuel_cost": {
+        "name": "Fuel car cost (comparison)"
+      },
+      "savings": {
+        "name": "Savings vs. fuel car"
+      },
+      "savings_month": {
+        "name": "Savings this month"
+      },
+      "savings_year": {
+        "name": "Savings this year"
+      },
+      "cost_per_100km": {
+        "name": "Cost per 100 km"
+      },
+      "fuel_cost_per_100km": {
+        "name": "Fuel car cost per 100 km"
+      },
+      "odometer": {
+        "name": "Odometer"
+      },
+      "distance": {
+        "name": "Distance driven"
+      },
+      "distance_month": {
+        "name": "Distance this month"
+      },
+      "consumption": {
+        "name": "Average consumption"
+      },
+      "sessions_total": {
+        "name": "Charging sessions"
+      },
+      "sessions_external": {
+        "name": "Public charging sessions"
+      },
+      "waiting_time": {
+        "name": "Waiting time public"
+      },
+      "charging_time_external": {
+        "name": "Charging time public"
+      },
+      "solar_share_home": {
+        "name": "Solar share at home"
+      },
+      "last_session": {
+        "name": "Last charging session"
+      },
+      "monthly_overview": {
+        "name": "Monthly overview"
+      }
+    }
+  },
+  "services": {
+    "add_session": {
+      "name": "Add charging session",
+      "description": "Log a charging session that happened outside evcc (public charger, work, …).",
+      "fields": {
+        "location": {
+          "name": "Location",
+          "description": "Where you charged."
+        },
+        "energy": {
+          "name": "Energy",
+          "description": "Charged energy in kWh."
+        },
+        "cost": {
+          "name": "Cost",
+          "description": "Total price paid."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Start of charging. Default: now."
+        },
+        "odometer": {
+          "name": "Odometer",
+          "description": "Default: last odometer reported by evcc."
+        },
+        "duration": {
+          "name": "Charging time",
+          "description": "Charging time in minutes."
+        },
+        "waiting_time": {
+          "name": "Waiting time",
+          "description": "Time spent waiting for a free charger in minutes."
+        },
+        "charge_type": {
+          "name": "Charge type",
+          "description": "AC or DC."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free text."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    },
+    "update_session": {
+      "name": "Update charging session",
+      "description": "Change a manually logged charging session.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "ID of a manual session (see attribute of the last session sensor)."
+        },
+        "location": {
+          "name": "Location",
+          "description": "Where you charged."
+        },
+        "energy": {
+          "name": "Energy",
+          "description": "Charged energy in kWh."
+        },
+        "cost": {
+          "name": "Cost",
+          "description": "Total price paid."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Start of charging. Default: now."
+        },
+        "odometer": {
+          "name": "Odometer",
+          "description": "Default: last odometer reported by evcc."
+        },
+        "duration": {
+          "name": "Charging time",
+          "description": "Charging time in minutes."
+        },
+        "waiting_time": {
+          "name": "Waiting time",
+          "description": "Time spent waiting for a free charger in minutes."
+        },
+        "charge_type": {
+          "name": "Charge type",
+          "description": "AC or DC."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free text."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    },
+    "delete_session": {
+      "name": "Delete charging session",
+      "description": "Delete a manually logged charging session.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "ID of a manual session (see attribute of the last session sensor)."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    },
+    "list_sessions": {
+      "name": "List charging sessions",
+      "description": "Returns all charging sessions and the monthly overview.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "no_entry": {
+      "message": "No EV Charge Log is set up."
+    },
+    "unknown_session": {
+      "message": "Unknown manual session {id}."
+    }
+  }
+}

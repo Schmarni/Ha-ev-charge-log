@@ -1,0 +1,290 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EV-Ladebuch",
+        "description": "evcc verbinden und Vergleich mit dem Verbrenner einrichten.",
+        "data": {
+          "url": "evcc-URL",
+          "fuel_consumption": "Verbrauch Verbrenner",
+          "fuel_price": "Kraftstoffpreis",
+          "fuel_price_entity": "Kraftstoffpreis-Sensor (optional)",
+          "start_odometer": "Kilometerstand bei Übernahme",
+          "vehicle_filter": "Fahrzeugfilter (optional)",
+          "scan_interval": "Aktualisierungsintervall"
+        },
+        "data_description": {
+          "url": "z. B. http://49686a9f-evcc:7070 für das evcc-Add-on",
+          "fuel_consumption": "Verbrauch des Vergleichsfahrzeugs in l/100 km.",
+          "fuel_price": "Fester Preis pro Liter, wird genutzt wenn kein Preis-Sensor gewählt ist.",
+          "fuel_price_entity": "Z. B. ein Tankerkönig-Sensor für den aktuellen Preis.",
+          "start_odometer": "Ab diesem Wert wird die gefahrene Strecke gezählt.",
+          "vehicle_filter": "Kommagetrennte Teile der evcc-Fahrzeugnamen. Leer = alle Fahrzeuge.",
+          "scan_interval": "Wie oft evcc abgefragt wird."
+        }
+      },
+      "reconfigure": {
+        "data": {
+          "url": "evcc-URL"
+        },
+        "data_description": {
+          "url": "z. B. http://49686a9f-evcc:7070 für das evcc-Add-on"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "evcc ist unter dieser URL nicht erreichbar."
+    },
+    "abort": {
+      "already_configured": "Diese evcc-Instanz ist bereits eingerichtet.",
+      "reconfigure_successful": "Gespeichert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "data": {
+          "fuel_consumption": "Verbrauch Verbrenner",
+          "fuel_price": "Kraftstoffpreis",
+          "fuel_price_entity": "Kraftstoffpreis-Sensor (optional)",
+          "start_odometer": "Kilometerstand bei Übernahme",
+          "vehicle_filter": "Fahrzeugfilter (optional)",
+          "scan_interval": "Aktualisierungsintervall"
+        },
+        "data_description": {
+          "fuel_consumption": "Verbrauch des Vergleichsfahrzeugs in l/100 km.",
+          "fuel_price": "Fester Preis pro Liter, wird genutzt wenn kein Preis-Sensor gewählt ist.",
+          "fuel_price_entity": "Z. B. ein Tankerkönig-Sensor für den aktuellen Preis.",
+          "start_odometer": "Ab diesem Wert wird die gefahrene Strecke gezählt.",
+          "vehicle_filter": "Kommagetrennte Teile der evcc-Fahrzeugnamen. Leer = alle Fahrzeuge.",
+          "scan_interval": "Wie oft evcc abgefragt wird."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy_total": {
+        "name": "Energie gesamt"
+      },
+      "energy_home": {
+        "name": "Energie daheim"
+      },
+      "energy_external": {
+        "name": "Energie unterwegs"
+      },
+      "energy_month": {
+        "name": "Energie diesen Monat"
+      },
+      "energy_year": {
+        "name": "Energie dieses Jahr"
+      },
+      "cost_total": {
+        "name": "Kosten gesamt"
+      },
+      "cost_home": {
+        "name": "Kosten daheim"
+      },
+      "cost_external": {
+        "name": "Kosten unterwegs"
+      },
+      "cost_month": {
+        "name": "Kosten diesen Monat"
+      },
+      "cost_year": {
+        "name": "Kosten dieses Jahr"
+      },
+      "price_avg": {
+        "name": "Durchschnittspreis"
+      },
+      "price_avg_home": {
+        "name": "Durchschnittspreis daheim"
+      },
+      "price_avg_external": {
+        "name": "Durchschnittspreis unterwegs"
+      },
+      "fuel_cost": {
+        "name": "Kosten Verbrenner (Vergleich)"
+      },
+      "savings": {
+        "name": "Ersparnis ggü. Verbrenner"
+      },
+      "savings_month": {
+        "name": "Ersparnis diesen Monat"
+      },
+      "savings_year": {
+        "name": "Ersparnis dieses Jahr"
+      },
+      "cost_per_100km": {
+        "name": "Kosten pro 100 km"
+      },
+      "fuel_cost_per_100km": {
+        "name": "Verbrenner-Kosten pro 100 km"
+      },
+      "odometer": {
+        "name": "Kilometerstand"
+      },
+      "distance": {
+        "name": "Gefahrene Strecke"
+      },
+      "distance_month": {
+        "name": "Strecke diesen Monat"
+      },
+      "consumption": {
+        "name": "Durchschnittsverbrauch"
+      },
+      "sessions_total": {
+        "name": "Ladevorgänge"
+      },
+      "sessions_external": {
+        "name": "Ladevorgänge unterwegs"
+      },
+      "waiting_time": {
+        "name": "Wartezeit unterwegs"
+      },
+      "charging_time_external": {
+        "name": "Ladezeit unterwegs"
+      },
+      "solar_share_home": {
+        "name": "Solaranteil daheim"
+      },
+      "last_session": {
+        "name": "Letzter Ladevorgang"
+      },
+      "monthly_overview": {
+        "name": "Monatsübersicht"
+      }
+    }
+  },
+  "services": {
+    "add_session": {
+      "name": "Ladevorgang erfassen",
+      "description": "Erfasst einen Ladevorgang außerhalb von evcc (öffentliche Säule, Arbeit, …).",
+      "fields": {
+        "location": {
+          "name": "Ort",
+          "description": "Wo geladen wurde."
+        },
+        "energy": {
+          "name": "Energie",
+          "description": "Geladene Energie in kWh."
+        },
+        "cost": {
+          "name": "Kosten",
+          "description": "Bezahlter Gesamtpreis."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Beginn des Ladevorgangs. Standard: jetzt."
+        },
+        "odometer": {
+          "name": "Kilometerstand",
+          "description": "Standard: zuletzt von evcc gemeldeter Kilometerstand."
+        },
+        "duration": {
+          "name": "Ladedauer",
+          "description": "Ladedauer in Minuten."
+        },
+        "waiting_time": {
+          "name": "Wartezeit",
+          "description": "Wartezeit auf eine freie Säule in Minuten."
+        },
+        "charge_type": {
+          "name": "Ladeart",
+          "description": "AC oder DC."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Freitext."
+        },
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    },
+    "update_session": {
+      "name": "Ladevorgang bearbeiten",
+      "description": "Ändert einen manuell erfassten Ladevorgang.",
+      "fields": {
+        "session_id": {
+          "name": "Ladevorgangs-ID",
+          "description": "ID eines manuellen Ladevorgangs (siehe Attribut des Sensors Letzter Ladevorgang)."
+        },
+        "location": {
+          "name": "Ort",
+          "description": "Wo geladen wurde."
+        },
+        "energy": {
+          "name": "Energie",
+          "description": "Geladene Energie in kWh."
+        },
+        "cost": {
+          "name": "Kosten",
+          "description": "Bezahlter Gesamtpreis."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Beginn des Ladevorgangs. Standard: jetzt."
+        },
+        "odometer": {
+          "name": "Kilometerstand",
+          "description": "Standard: zuletzt von evcc gemeldeter Kilometerstand."
+        },
+        "duration": {
+          "name": "Ladedauer",
+          "description": "Ladedauer in Minuten."
+        },
+        "waiting_time": {
+          "name": "Wartezeit",
+          "description": "Wartezeit auf eine freie Säule in Minuten."
+        },
+        "charge_type": {
+          "name": "Ladeart",
+          "description": "AC oder DC."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Freitext."
+        },
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    },
+    "delete_session": {
+      "name": "Ladevorgang löschen",
+      "description": "Löscht einen manuell erfassten Ladevorgang.",
+      "fields": {
+        "session_id": {
+          "name": "Ladevorgangs-ID",
+          "description": "ID eines manuellen Ladevorgangs (siehe Attribut des Sensors Letzter Ladevorgang)."
+        },
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    },
+    "list_sessions": {
+      "name": "Ladevorgänge auflisten",
+      "description": "Gibt alle Ladevorgänge und die Monatsübersicht zurück.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "no_entry": {
+      "message": "Es ist kein EV-Ladebuch eingerichtet."
+    },
+    "unknown_session": {
+      "message": "Unbekannter manueller Ladevorgang {id}."
+    }
+  }
+}
