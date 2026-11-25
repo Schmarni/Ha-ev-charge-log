@@ -337,7 +337,7 @@ class EvChargeLogCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display: block; }
-        ha-card { padding: 16px; }
+        ha-card { display: block; padding: 16px; }
         .head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .head .ic { font-size: 22px; }
         .head h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 500; color: var(--primary-text-color); }

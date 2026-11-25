@@ -63,7 +63,7 @@ list_limit: 10                 # optional
 default_charge_type: DC        # optional
 ```
 
-![card](docs/card.png)
+<img src="docs/card.png" width="360" alt="EV Charge Log card">
 
 ## Logging a public charging session via action
 
