@@ -44,12 +44,26 @@ class EvccApi:
             raise EvccApiError("unexpected /api/state payload")
         return data
 
-    async def odometer(self) -> float | None:
-        """Highest odometer reported by any loadpoint (None if no car connected)."""
+    async def vehicles(self) -> tuple[list[dict[str, Any]], list[str]]:
+        """Return (configured vehicles, vehicle titles seen in sessions)."""
         state = await self.state()
-        values = [
-            lp.get("vehicleOdometer")
+        configured = [
+            {"name": key, "title": v.get("title") or key, "capacity": v.get("capacity")}
+            for key, v in (state.get("vehicles") or {}).items()
+            if isinstance(v, dict)
+        ]
+        seen: list[str] = []
+        for s in await self.sessions():
+            title = s.get("vehicle")
+            if title and title not in seen:
+                seen.append(title)
+        return configured, seen
+
+    async def odometers(self) -> list[tuple[str | None, float]]:
+        """(vehicle title, odometer) of every loadpoint with a car that reports one."""
+        state = await self.state()
+        return [
+            (lp.get("vehicleTitle"), float(lp["vehicleOdometer"]))
             for lp in state.get("loadpoints") or []
             if isinstance(lp.get("vehicleOdometer"), (int, float)) and lp["vehicleOdometer"] > 0
         ]
-        return float(max(values)) if values else None

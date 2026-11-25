@@ -17,6 +17,7 @@ from homeassistant.const import (
     EntityCategory,
     UnitOfEnergy,
     UnitOfLength,
+    UnitOfMass,
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
@@ -26,7 +27,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import EvChargeLogConfigEntry
-from .const import DOMAIN
+from .const import CONF_BATTERY_CAPACITY, CONF_WLTP_CONSUMPTION, CONF_VEHICLES, DOMAIN
 from .coordinator import EvChargeLogCoordinator
 from .stats import Stats
 
@@ -66,6 +67,13 @@ PRICE = dict(
 KM = dict(
     native_unit_of_measurement=UnitOfLength.KILOMETERS,
     device_class=SensorDeviceClass.DISTANCE,
+    suggested_display_precision=0,
+)
+
+CO2 = dict(
+    native_unit_of_measurement=UnitOfMass.KILOGRAMS,
+    device_class=SensorDeviceClass.WEIGHT,
+    state_class=SensorStateClass.TOTAL,
     suggested_display_precision=0,
 )
 
@@ -115,6 +123,22 @@ SENSORS: tuple[EvSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=2,
         currency=True, per_100km=True, value_fn=lambda s: _r(s.fuel_cost_per_100km),
         attrs_fn=lambda s: {"fuel_consumption": s.fuel_consumption, "fuel_price": s.fuel_price}),
+    # CO2
+    EvSensorDescription(key="co2_ev", translation_key="co2_ev",
+        value_fn=lambda s: _r(s.ev_co2_kg, 1), **CO2),
+    EvSensorDescription(key="co2_fuel", translation_key="co2_fuel",
+        value_fn=lambda s: _r(s.fuel_co2_kg, 1),
+        attrs_fn=lambda s: {"kg_co2_per_litre": s.fuel_co2_per_l}, **CO2),
+    EvSensorDescription(key="co2_savings", translation_key="co2_savings",
+        value_fn=lambda s: _r(s.co2_savings_kg, 1), **CO2),
+    # vehicle
+    EvSensorDescription(key="wltp_deviation", translation_key="wltp_deviation",
+        native_unit_of_measurement=PERCENTAGE, state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0, value_fn=lambda s: _r(s.wltp_deviation, 1),
+        attrs_fn=lambda s: {"wltp_consumption": s.wltp_consumption}),
+    EvSensorDescription(key="range_estimate", translation_key="range_estimate",
+        state_class=SensorStateClass.MEASUREMENT, value_fn=lambda s: _r(s.range_estimate, 0),
+        attrs_fn=lambda s: {"battery_capacity": s.battery_capacity}, **KM),
     # distance & consumption
     EvSensorDescription(key="odometer", translation_key="odometer",
         state_class=SensorStateClass.TOTAL_INCREASING, value_fn=lambda s: s.odometer, **KM),
@@ -156,7 +180,15 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(EvChargeLogSensor(coordinator, d) for d in SENSORS)
+    opts = coordinator.options
+    skip = set()
+    if not opts.get(CONF_WLTP_CONSUMPTION):
+        skip.add("wltp_deviation")
+    if not opts.get(CONF_BATTERY_CAPACITY):
+        skip.add("range_estimate")
+    async_add_entities(
+        EvChargeLogSensor(coordinator, d) for d in SENSORS if d.key not in skip
+    )
 
 
 class EvChargeLogSensor(CoordinatorEntity[EvChargeLogCoordinator], SensorEntity):
@@ -175,7 +207,7 @@ class EvChargeLogSensor(CoordinatorEntity[EvChargeLogCoordinator], SensorEntity)
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="EV Charge Log",
-            model="evcc + manual sessions",
+            model=", ".join(coordinator.options.get(CONF_VEHICLES) or []) or "EV Charge Log",
             entry_type=DeviceEntryType.SERVICE,
         )
         if description.currency:

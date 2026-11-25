@@ -191,6 +191,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             "sessions": coord.all_sessions(),
             "monthly": stats.monthly if stats else [],
             "odometer": coord.last_odometer,
+            "config_entry_id": coord.config_entry.entry_id,
+            "title": coord.config_entry.title,
         }
 
     hass.services.async_register(

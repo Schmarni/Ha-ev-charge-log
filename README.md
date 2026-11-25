@@ -38,13 +38,18 @@ Copy `custom_components/ev_charge_log` into your `config/custom_components` fold
 
 Settings → Devices & services → Add integration → **EV Charge Log**
 
-| Option | Meaning |
-|---|---|
-| evcc URL | e.g. `http://49686a9f-evcc:7070` for the evcc add-on, or `http://<ip>:7070` |
-| Fuel car consumption | l/100 km of the car you compare against |
-| Fuel price / fuel price sensor | fixed €/l, or a sensor with the current price |
-| Odometer at start | distance is counted from this value (0 = from new) |
-| Vehicle filter | optional, comma separated parts of evcc vehicle names |
+Setup has three steps:
+
+1. **evcc** – URL of evcc (e.g. `http://49686a9f-evcc:7070` for the evcc app, or `http://<ip>:7070`), or switch evcc off to log every session manually.
+2. **Vehicle** – name (prefilled from evcc, free to change), which evcc vehicle names belong to this car
+   (evcc names can change over time – select all of them), usable battery capacity, WLTP consumption and an
+   optional odometer sensor (needed without evcc).
+3. **Comparison car** – diesel or petrol, l/100 km, fuel price (fixed or a sensor, e.g. Tankerkönig),
+   odometer at handover and the CO₂ value used for public charging (g/kWh).
+
+Several cars? Add the integration once per car and pick the matching evcc vehicle. The form card then shows a vehicle selector.
+
+New in 0.3: CO₂ of the EV and of the comparison car, CO₂ savings, deviation from WLTP, real range on a full battery.
 
 ## Form card
 

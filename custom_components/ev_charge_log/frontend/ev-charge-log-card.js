@@ -7,9 +7,10 @@
  *   show_list: true                # optional, default true
  *   list_limit: 10                 # optional, default 10
  *   default_charge_type: DC        # optional, AC | DC
+ *   config_entry_id: abc123        # optional, fixes the car when several are set up
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.3.0";
 const DOMAIN = "ev_charge_log";
 
 const I18N = {
@@ -42,6 +43,7 @@ const I18N = {
     show_all: "Alle anzeigen",
     show_less: "Weniger anzeigen",
     error: "Fehler",
+    vehicle: "Fahrzeug",
   },
   en: {
     title: "Public charging",
@@ -72,6 +74,7 @@ const I18N = {
     show_all: "Show all",
     show_less: "Show less",
     error: "Error",
+    vehicle: "Vehicle",
   },
 };
 
@@ -92,6 +95,8 @@ class EvChargeLogCard extends HTMLElement {
     this._showAll = false;
     this._busy = false;
     this._loaded = false;
+    this._entries = [];
+    this._entryId = null;
   }
 
   static getStubConfig() {
@@ -134,13 +139,27 @@ class EvChargeLogCard extends HTMLElement {
   }
 
   async _callService(service, data, withResponse = false) {
-    const msg = { type: "call_service", domain: DOMAIN, service, service_data: data };
+    const entry = this._config.config_entry_id || this._entryId;
+    const service_data = entry ? { ...data, config_entry_id: entry } : data;
+    const msg = { type: "call_service", domain: DOMAIN, service, service_data };
     if (withResponse) msg.return_response = true;
     const res = await this._hass.connection.sendMessagePromise(msg);
     return res?.response;
   }
 
+  async _loadEntries() {
+    if (this._config.config_entry_id) return;
+    try {
+      const entries = await this._hass.callWS({ type: "config_entries/get", domain: DOMAIN });
+      this._entries = (entries || []).filter((e) => e.state === "loaded");
+      if (!this._entryId && this._entries.length) this._entryId = this._entries[0].entry_id;
+    } catch (err) {
+      this._entries = [];
+    }
+  }
+
   async _load() {
+    if (!this._entries.length) await this._loadEntries();
     try {
       const res = await this._callService("list_sessions", {}, true);
       this._sessions = (res?.sessions || []).filter((s) => s.source === "manual");
@@ -327,7 +346,8 @@ class EvChargeLogCard extends HTMLElement {
         .full { grid-column: 1 / -1; }
         label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--secondary-text-color); }
         .inp { position: relative; display: flex; align-items: center; }
-        input, textarea {
+        .vehicle { margin-bottom: 12px; }
+        input, textarea, select {
           width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
           padding: 10px 12px; border-radius: 8px;
           border: 1px solid var(--divider-color, #ccc);
@@ -370,6 +390,10 @@ class EvChargeLogCard extends HTMLElement {
           <h2>${esc(this._config.title || t.title)}</h2>
           ${this._editing ? `<span class="badge">${t.editing}</span>` : ""}
         </div>
+        ${this._entries.length > 1 && !this._config.config_entry_id ? `
+        <label class="full vehicle">${t.vehicle}
+          <select id="entry">${this._entries.map((e) => `<option value="${esc(e.entry_id)}" ${e.entry_id === this._entryId ? "selected" : ""}>${esc(e.title)}</option>`).join("")}</select>
+        </label>` : ""}
         <div class="grid">
           <label class="full">${t.location}
             <input id="location" list="locs" autocomplete="off" value="${esc(v.location)}" placeholder="z. B. Lidl Pirna">
@@ -425,6 +449,12 @@ class EvChargeLogCard extends HTMLElement {
 
     const root = this.shadowRoot;
     root.getElementById("save").addEventListener("click", () => this._save());
+    root.getElementById("entry")?.addEventListener("change", (ev) => {
+      this._entryId = ev.target.value;
+      this._editing = null;
+      this._clearForm = true;
+      this._load();
+    });
     root.getElementById("cancel")?.addEventListener("click", () => this._cancel());
     root.getElementById("toggle").addEventListener("click", () => {
       this._expanded = !this._expanded;

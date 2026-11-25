@@ -44,6 +44,7 @@ def normalize_evcc_session(raw: dict[str, Any]) -> dict[str, Any] | None:
         "waiting_time": None,
         "charge_type": "AC",
         "solar_percentage": _f(raw.get("solarPercentage")),
+        "co2_per_kwh": _f(raw.get("co2PerKWh")),
         "note": None,
     }
 
@@ -119,6 +120,10 @@ class Stats:
     distance_year: float | None = None
     fuel_consumption: float = 0.0
     fuel_price: float = 0.0
+    fuel_co2_per_l: float = 2.65
+    battery_capacity: float | None = None
+    wltp_consumption: float | None = None
+    ev_co2_kg: float = 0.0
     monthly: list[dict[str, Any]] = field(default_factory=list)
     recent: list[dict[str, Any]] = field(default_factory=list)
 
@@ -170,6 +175,31 @@ class Stats:
         return self.fuel_consumption * self.fuel_price
 
     @property
+    def fuel_co2_kg(self) -> float | None:
+        if self.distance is None:
+            return None
+        return self.distance / 100 * self.fuel_consumption * self.fuel_co2_per_l
+
+    @property
+    def co2_savings_kg(self) -> float | None:
+        fuel = self.fuel_co2_kg
+        return None if fuel is None else fuel - self.ev_co2_kg
+
+    @property
+    def wltp_deviation(self) -> float | None:
+        """Real consumption vs. WLTP in percent (+ = more than WLTP)."""
+        if not self.wltp_consumption or self.consumption is None:
+            return None
+        return (self.consumption / self.wltp_consumption - 1) * 100
+
+    @property
+    def range_estimate(self) -> float | None:
+        """Range on a full battery at the real average consumption."""
+        if not self.battery_capacity or not self.consumption:
+            return None
+        return self.battery_capacity / self.consumption * 100
+
+    @property
     def solar_share_home(self) -> float | None:
         b = self.home
         v = _div(b.solar_energy, b.solar_known_energy)
@@ -202,10 +232,20 @@ def compute(
     start_odometer: float,
     fuel_consumption: float,
     fuel_price: float,
+    fuel_co2_per_l: float = 2.65,
+    grid_co2: float = 380,
+    battery_capacity: float | None = None,
+    wltp_consumption: float | None = None,
     recent_count: int = 25,
 ) -> Stats:
     """Compute all statistics."""
-    st = Stats(fuel_consumption=fuel_consumption, fuel_price=fuel_price)
+    st = Stats(
+        fuel_consumption=fuel_consumption,
+        fuel_price=fuel_price,
+        fuel_co2_per_l=fuel_co2_per_l,
+        battery_capacity=battery_capacity,
+        wltp_consumption=wltp_consumption,
+    )
 
     dated: list[tuple[datetime, dict[str, Any]]] = []
     for s in sessions:
@@ -223,6 +263,8 @@ def compute(
 
     for dt, s in dated:
         st.total.add(s)
+        co2 = s.get("co2_per_kwh")
+        st.ev_co2_kg += (s.get("energy") or 0) * (co2 if co2 is not None else grid_co2) / 1000
         (st.home if s.get("source") == SOURCE_EVCC else st.external).add(s)
         key = dt.strftime("%Y-%m")
         months.setdefault(key, Bucket()).add(s)

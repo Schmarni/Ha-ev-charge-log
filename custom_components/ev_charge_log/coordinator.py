@@ -16,6 +16,15 @@ from homeassistant.util import dt as dt_util
 
 from .api import EvccApi, EvccApiError
 from .const import (
+    CONF_BATTERY_CAPACITY,
+    CONF_FUEL_TYPE,
+    CONF_GRID_CO2,
+    CONF_ODOMETER_ENTITY,
+    CONF_VEHICLES,
+    CONF_WLTP_CONSUMPTION,
+    DEFAULT_FUEL_TYPE,
+    DEFAULT_GRID_CO2,
+    FUEL_CO2_KG_PER_L,
     CONF_FUEL_CONSUMPTION,
     CONF_FUEL_PRICE,
     CONF_FUEL_PRICE_ENTITY,
@@ -54,7 +63,8 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
                 minutes=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
             ),
         )
-        self.api = EvccApi(async_get_clientsession(hass), opts[CONF_URL])
+        url = opts.get(CONF_URL)
+        self.api = EvccApi(async_get_clientsession(hass), url) if url else None
         self._store: Store[dict[str, Any]] = Store(
             hass, STORAGE_VERSION, f"{STORAGE_KEY}.{entry.entry_id}"
         )
@@ -91,35 +101,55 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
         )
 
     # ------------------------------------------------------------------ update
-    async def _async_update_data(self) -> Stats:
+    def _entity_odometer(self) -> float | None:
+        entity_id = self.options.get(CONF_ODOMETER_ENTITY)
+        if not entity_id or (state := self.hass.states.get(entity_id)) is None:
+            return None
         try:
-            raw = await self.api.sessions()
-            odometer = await self.api.odometer()
-            self.evcc_available = True
-        except EvccApiError as err:
-            self.evcc_available = False
-            if not self.evcc_sessions and not self.manual_sessions:
-                raise UpdateFailed(f"evcc not reachable: {err}") from err
-            _LOGGER.warning("evcc not reachable, using cached data: %s", err)
-            raw, odometer = None, None
+            return float(state.state)
+        except ValueError:
+            return None
+
+    def _vehicle_matches(self, title: str | None) -> bool:
+        title = (title or "").lower()
+        selected = [v.lower() for v in self.options.get(CONF_VEHICLES) or []]
+        if selected:
+            return title in selected
+        legacy = [
+            v.strip().lower()
+            for v in (self.options.get(CONF_VEHICLE_FILTER) or "").split(",")
+            if v.strip()
+        ]
+        return not legacy or any(f in title for f in legacy)
+
+    async def _async_update_data(self) -> Stats:
+        raw, odometer = None, None
+        if self.api is not None:
+            try:
+                raw = await self.api.sessions()
+                readings = [
+                    odo for title, odo in await self.api.odometers()
+                    if self._vehicle_matches(title)
+                ]
+                odometer = max(readings) if readings else None
+                self.evcc_available = True
+            except EvccApiError as err:
+                self.evcc_available = False
+                if not self.evcc_sessions and not self.manual_sessions:
+                    raise UpdateFailed(f"evcc not reachable: {err}") from err
+                _LOGGER.warning("evcc not reachable, using cached data: %s", err)
 
         if raw is not None:
-            vehicle_filter = [
-                v.strip().lower()
-                for v in (self.options.get(CONF_VEHICLE_FILTER) or "").split(",")
-                if v.strip()
-            ]
             sessions = []
             for item in raw:
                 norm = normalize_evcc_session(item)
-                if norm is None:
-                    continue
-                if vehicle_filter and not any(
-                    f in (norm.get("vehicle") or "").lower() for f in vehicle_filter
-                ):
-                    continue
-                sessions.append(norm)
+                if norm is not None and self._vehicle_matches(norm.get("vehicle")):
+                    sessions.append(norm)
             self.evcc_sessions = sessions
+
+        entity_odo = self._entity_odometer()
+        if entity_odo and (odometer is None or entity_odo > odometer):
+            odometer = entity_odo
 
         if odometer and (self.last_odometer is None or odometer > self.last_odometer):
             self.last_odometer = odometer
@@ -128,6 +158,7 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
         return self._compute()
 
     def _compute(self) -> Stats:
+        fuel_type = self.options.get(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
         return compute(
             self.evcc_sessions + self.manual_sessions,
             now=dt_util.now(),
@@ -139,6 +170,10 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
                 self.options.get(CONF_FUEL_CONSUMPTION, DEFAULT_FUEL_CONSUMPTION)
             ),
             fuel_price=self.fuel_price(),
+            fuel_co2_per_l=FUEL_CO2_KG_PER_L.get(fuel_type, FUEL_CO2_KG_PER_L["diesel"]),
+            grid_co2=float(self.options.get(CONF_GRID_CO2, DEFAULT_GRID_CO2)),
+            battery_capacity=self.options.get(CONF_BATTERY_CAPACITY),
+            wltp_consumption=self.options.get(CONF_WLTP_CONSUMPTION),
             recent_count=RECENT_SESSIONS,
         )
 

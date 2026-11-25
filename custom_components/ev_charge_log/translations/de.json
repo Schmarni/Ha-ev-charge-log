@@ -3,9 +3,40 @@
     "step": {
       "user": {
         "title": "EV-Ladebuch",
-        "description": "evcc verbinden und Vergleich mit dem Verbrenner einrichten.",
+        "description": "Woher kommen die Ladevorgänge daheim?",
         "data": {
-          "url": "evcc-URL",
+          "use_evcc": "evcc verwenden",
+          "url": "evcc-URL"
+        },
+        "data_description": {
+          "use_evcc": "Ladevorgänge daheim aus evcc lesen. Aus = alle Ladungen manuell erfassen.",
+          "url": "z. B. http://49686a9f-evcc:7070 für das evcc-Add-on"
+        }
+      },
+      "vehicle": {
+        "title": "Fahrzeug",
+        "description": "evcc kennt {count} Fahrzeug(e). Name und Fahrzeugdaten sind nur vorausgefüllt – frei änderbar.",
+        "data": {
+          "name": "Name",
+          "vehicles": "evcc-Fahrzeuge",
+          "battery_capacity": "Akkukapazität (nutzbar)",
+          "wltp_consumption": "WLTP-Verbrauch",
+          "odometer_entity": "Kilometerstand-Sensor (optional)"
+        },
+        "data_description": {
+          "name": "Wird als Gerätename angezeigt, z. B. der Name des Autos.",
+          "vehicles": "Welche evcc-Fahrzeuge zu diesem Auto gehören. Namen können sich in evcc mit der Zeit ändern – alle Namen dieses Autos auswählen. Nichts ausgewählt = alle Fahrzeuge.",
+          "battery_capacity": "Optional – für die reale Reichweite.",
+          "wltp_consumption": "Optional – kombinierter WLTP-Wert laut Datenblatt.",
+          "odometer_entity": "Nur nötig ohne evcc oder wenn evcc den Kilometerstand nicht kennt."
+        }
+      },
+      "comparison": {
+        "title": "Vergleichsfahrzeug",
+        "description": "Mit welchem Verbrenner soll verglichen werden?",
+        "data": {
+          "fuel_type": "Kraftstoff des Vergleichsautos",
+          "grid_co2": "CO₂ beim Laden unterwegs",
           "fuel_consumption": "Verbrauch Verbrenner",
           "fuel_price": "Kraftstoffpreis",
           "fuel_price_entity": "Kraftstoffpreis-Sensor (optional)",
@@ -14,7 +45,8 @@
           "scan_interval": "Aktualisierungsintervall"
         },
         "data_description": {
-          "url": "z. B. http://49686a9f-evcc:7070 für das evcc-Add-on",
+          "fuel_type": "Wird für den CO₂-Vergleich genutzt.",
+          "grid_co2": "g CO₂ pro kWh für Ladungen ohne evcc-Wert (Strommix Deutschland ≈ 380).",
           "fuel_consumption": "Verbrauch des Vergleichsfahrzeugs in l/100 km.",
           "fuel_price": "Fester Preis pro Liter, wird genutzt wenn kein Preis-Sensor gewählt ist.",
           "fuel_price_entity": "Z. B. ein Tankerkönig-Sensor für den aktuellen Preis.",
@@ -25,9 +57,11 @@
       },
       "reconfigure": {
         "data": {
+          "use_evcc": "evcc verwenden",
           "url": "evcc-URL"
         },
         "data_description": {
+          "use_evcc": "Ladevorgänge daheim aus evcc lesen. Aus = alle Ladungen manuell erfassen.",
           "url": "z. B. http://49686a9f-evcc:7070 für das evcc-Add-on"
         }
       }
@@ -36,7 +70,7 @@
       "cannot_connect": "evcc ist unter dieser URL nicht erreichbar."
     },
     "abort": {
-      "already_configured": "Diese evcc-Instanz ist bereits eingerichtet.",
+      "already_configured": "Dieses Fahrzeug ist bereits eingerichtet.",
       "reconfigure_successful": "Gespeichert."
     }
   },
@@ -45,6 +79,12 @@
       "init": {
         "title": "Einstellungen",
         "data": {
+          "vehicles": "evcc-Fahrzeuge",
+          "battery_capacity": "Akkukapazität (nutzbar)",
+          "wltp_consumption": "WLTP-Verbrauch",
+          "odometer_entity": "Kilometerstand-Sensor (optional)",
+          "fuel_type": "Kraftstoff des Vergleichsautos",
+          "grid_co2": "CO₂ beim Laden unterwegs",
           "fuel_consumption": "Verbrauch Verbrenner",
           "fuel_price": "Kraftstoffpreis",
           "fuel_price_entity": "Kraftstoffpreis-Sensor (optional)",
@@ -53,6 +93,12 @@
           "scan_interval": "Aktualisierungsintervall"
         },
         "data_description": {
+          "vehicles": "Welche evcc-Fahrzeuge zu diesem Auto gehören. Namen können sich in evcc mit der Zeit ändern – alle Namen dieses Autos auswählen. Nichts ausgewählt = alle Fahrzeuge.",
+          "battery_capacity": "Optional – für die reale Reichweite.",
+          "wltp_consumption": "Optional – kombinierter WLTP-Wert laut Datenblatt.",
+          "odometer_entity": "Nur nötig ohne evcc oder wenn evcc den Kilometerstand nicht kennt.",
+          "fuel_type": "Wird für den CO₂-Vergleich genutzt.",
+          "grid_co2": "g CO₂ pro kWh für Ladungen ohne evcc-Wert (Strommix Deutschland ≈ 380).",
           "fuel_consumption": "Verbrauch des Vergleichsfahrzeugs in l/100 km.",
           "fuel_price": "Fester Preis pro Liter, wird genutzt wenn kein Preis-Sensor gewählt ist.",
           "fuel_price_entity": "Z. B. ein Tankerkönig-Sensor für den aktuellen Preis.",
@@ -60,6 +106,14 @@
           "vehicle_filter": "Kommagetrennte Teile der evcc-Fahrzeugnamen. Leer = alle Fahrzeuge.",
           "scan_interval": "Wie oft evcc abgefragt wird."
         }
+      }
+    }
+  },
+  "selector": {
+    "fuel_type": {
+      "options": {
+        "diesel": "Diesel",
+        "petrol": "Benzin"
       }
     }
   },
@@ -154,6 +208,21 @@
       },
       "monthly_overview": {
         "name": "Monatsübersicht"
+      },
+      "co2_ev": {
+        "name": "CO₂ E-Auto"
+      },
+      "co2_fuel": {
+        "name": "CO₂ Verbrenner (Vergleich)"
+      },
+      "co2_savings": {
+        "name": "CO₂-Ersparnis"
+      },
+      "wltp_deviation": {
+        "name": "Abweichung vom WLTP"
+      },
+      "range_estimate": {
+        "name": "Reale Reichweite (voller Akku)"
       }
     }
   },

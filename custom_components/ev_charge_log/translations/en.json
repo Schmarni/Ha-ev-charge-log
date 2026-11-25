@@ -3,9 +3,40 @@
     "step": {
       "user": {
         "title": "EV Charge Log",
-        "description": "Connect evcc and set up the fuel car comparison.",
+        "description": "Where do the home charging sessions come from?",
         "data": {
-          "url": "evcc URL",
+          "use_evcc": "Use evcc",
+          "url": "evcc URL"
+        },
+        "data_description": {
+          "use_evcc": "Read home charging sessions from evcc. Off = log every session manually.",
+          "url": "e.g. http://49686a9f-evcc:7070 for the evcc add-on"
+        }
+      },
+      "vehicle": {
+        "title": "Vehicle",
+        "description": "evcc knows {count} vehicle(s). Name and vehicle data are only prefilled – change them as you like.",
+        "data": {
+          "name": "Name",
+          "vehicles": "evcc vehicles",
+          "battery_capacity": "Battery capacity (usable)",
+          "wltp_consumption": "WLTP consumption",
+          "odometer_entity": "Odometer sensor (optional)"
+        },
+        "data_description": {
+          "name": "Shown as device name, e.g. the car's name.",
+          "vehicles": "Which evcc vehicles belong to this car. evcc names can change over time – select all names of this car. Nothing selected = all vehicles.",
+          "battery_capacity": "Optional – for the real range.",
+          "wltp_consumption": "Optional – combined WLTP value from the data sheet.",
+          "odometer_entity": "Only needed without evcc or if evcc does not know the odometer."
+        }
+      },
+      "comparison": {
+        "title": "Comparison car",
+        "description": "Which combustion car do you compare against?",
+        "data": {
+          "fuel_type": "Fuel of the comparison car",
+          "grid_co2": "CO2 of public charging",
           "fuel_consumption": "Fuel car consumption",
           "fuel_price": "Fuel price",
           "fuel_price_entity": "Fuel price sensor (optional)",
@@ -14,7 +45,8 @@
           "scan_interval": "Update interval"
         },
         "data_description": {
-          "url": "e.g. http://49686a9f-evcc:7070 for the evcc add-on",
+          "fuel_type": "Used for the CO2 comparison.",
+          "grid_co2": "g CO2 per kWh for sessions without evcc data (German grid mix ≈ 380).",
           "fuel_consumption": "Consumption of the comparison car in l/100 km.",
           "fuel_price": "Fixed price per litre, used when no price sensor is set.",
           "fuel_price_entity": "E.g. a Tankerkönig sensor for a live price.",
@@ -25,9 +57,11 @@
       },
       "reconfigure": {
         "data": {
+          "use_evcc": "Use evcc",
           "url": "evcc URL"
         },
         "data_description": {
+          "use_evcc": "Read home charging sessions from evcc. Off = log every session manually.",
           "url": "e.g. http://49686a9f-evcc:7070 for the evcc add-on"
         }
       }
@@ -36,7 +70,7 @@
       "cannot_connect": "Cannot reach evcc at this URL."
     },
     "abort": {
-      "already_configured": "This evcc instance is already set up.",
+      "already_configured": "This vehicle is already set up.",
       "reconfigure_successful": "Saved."
     }
   },
@@ -45,6 +79,12 @@
       "init": {
         "title": "Settings",
         "data": {
+          "vehicles": "evcc vehicles",
+          "battery_capacity": "Battery capacity (usable)",
+          "wltp_consumption": "WLTP consumption",
+          "odometer_entity": "Odometer sensor (optional)",
+          "fuel_type": "Fuel of the comparison car",
+          "grid_co2": "CO2 of public charging",
           "fuel_consumption": "Fuel car consumption",
           "fuel_price": "Fuel price",
           "fuel_price_entity": "Fuel price sensor (optional)",
@@ -53,6 +93,12 @@
           "scan_interval": "Update interval"
         },
         "data_description": {
+          "vehicles": "Which evcc vehicles belong to this car. evcc names can change over time – select all names of this car. Nothing selected = all vehicles.",
+          "battery_capacity": "Optional – for the real range.",
+          "wltp_consumption": "Optional – combined WLTP value from the data sheet.",
+          "odometer_entity": "Only needed without evcc or if evcc does not know the odometer.",
+          "fuel_type": "Used for the CO2 comparison.",
+          "grid_co2": "g CO2 per kWh for sessions without evcc data (German grid mix ≈ 380).",
           "fuel_consumption": "Consumption of the comparison car in l/100 km.",
           "fuel_price": "Fixed price per litre, used when no price sensor is set.",
           "fuel_price_entity": "E.g. a Tankerkönig sensor for a live price.",
@@ -60,6 +106,14 @@
           "vehicle_filter": "Comma separated parts of evcc vehicle names. Empty = all vehicles.",
           "scan_interval": "How often evcc is polled."
         }
+      }
+    }
+  },
+  "selector": {
+    "fuel_type": {
+      "options": {
+        "diesel": "Diesel",
+        "petrol": "Petrol"
       }
     }
   },
@@ -154,6 +208,21 @@
       },
       "monthly_overview": {
         "name": "Monthly overview"
+      },
+      "co2_ev": {
+        "name": "CO2 electric car"
+      },
+      "co2_fuel": {
+        "name": "CO2 fuel car (comparison)"
+      },
+      "co2_savings": {
+        "name": "CO2 savings"
+      },
+      "wltp_deviation": {
+        "name": "Deviation from WLTP"
+      },
+      "range_estimate": {
+        "name": "Real range (full battery)"
       }
     }
   },

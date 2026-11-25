@@ -14,7 +14,8 @@ SESSIONS = [
      "loadpoint": "Carport", "vehicle": "Elroq", "odometer": 1500, "chargedEnergy": 10.0,
      "chargeDuration": None, "solarPercentage": None, "price": None},
 ]
-STATE = {"loadpoints": [{"vehicleOdometer": 2000}]}
+STATE = {"loadpoints": [{"vehicleOdometer": 2000, "vehicleTitle": "Elroq"}],
+         "vehicles": {"db:1": {"title": "Elroq", "capacity": 77}}}
 
 
 def mock_evcc(aioclient_mock):
@@ -26,11 +27,59 @@ async def test_config_flow(hass: HomeAssistant, aioclient_mock):
     mock_evcc(aioclient_mock)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"use_evcc": True, "url": URL + "/"})
+    assert result["step_id"] == "vehicle"
+    schema = {str(k): k for k in result["data_schema"].schema}
+    assert schema["name"].default() == "Elroq"
+    assert schema["vehicles"].default() == ["Elroq"]
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {
-        "url": URL + "/", "fuel_consumption": 6.0, "fuel_price": 1.8, "start_odometer": 0, "scan_interval": 5})
+        "name": "Mein Elroq", "vehicles": ["Elroq"], "battery_capacity": 77, "wltp_consumption": 16.5})
+    assert result["step_id"] == "comparison"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {
+        "fuel_type": "petrol", "fuel_consumption": 7.0, "fuel_price": 1.8, "start_odometer": 10, "grid_co2": 380})
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Mein Elroq"
     assert result["data"] == {"url": URL}
-    assert result["options"]["fuel_price"] == 1.8
+    assert result["options"]["fuel_type"] == "petrol"
+    assert result["options"]["vehicles"] == ["Elroq"]
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.mein_elroq_deviation_from_wltp") is not None
+    assert hass.states.get("sensor.mein_elroq_real_range_full_battery") is not None
+
+
+async def test_without_evcc(hass: HomeAssistant):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"use_evcc": False})
+    assert result["step_id"] == "vehicle"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Zweitwagen"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {
+        "fuel_type": "diesel", "fuel_consumption": 6.0, "fuel_price": 1.8, "start_odometer": 0, "grid_co2": 380})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    await hass.services.async_call(DOMAIN, "add_session", {"location": "A", "energy": 10, "cost": 5, "odometer": 100},
+        blocking=True)
+    await hass.async_block_till_done()
+    assert float(hass.states.get("sensor.zweitwagen_energy_total").state) == 10
+    assert float(hass.states.get("sensor.zweitwagen_cost_total").state) == 5
+    # 100 km * 6 l * 2.65 kg = 15.9 kg, EV 10 kWh * 380 g = 3.8 kg
+    assert float(hass.states.get("sensor.zweitwagen_co2_fuel_car_comparison").state) == 15.9
+    assert float(hass.states.get("sensor.zweitwagen_co2_savings").state) == 12.1
+
+
+async def test_vehicle_filter(hass: HomeAssistant, aioclient_mock):
+    hass.config.currency = "EUR"
+    sessions = SESSIONS + [{"id": 3, "created": "2026-10-06T13:00:00+02:00", "loadpoint": "Carport",
+        "vehicle": "Fabia", "odometer": 50, "chargedEnergy": 7.0, "price": 2.0}]
+    aioclient_mock.get(f"{URL}/api/sessions", json=sessions)
+    aioclient_mock.get(f"{URL}/api/state", json=STATE)
+    entry = MockConfigEntry(domain=DOMAIN, title="Fabia", data={"url": URL},
+        options={"vehicles": ["Fabia"], "fuel_consumption": 6.0, "fuel_price": 1.8})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert float(hass.states.get("sensor.fabia_energy_total").state) == 7.0
+    # odometer of the plugged-in Elroq must not count for the Fabia
+    assert float(hass.states.get("sensor.fabia_odometer").state) == 50
 
 
 async def test_setup_and_services(hass: HomeAssistant, aioclient_mock, hass_client):
@@ -106,3 +155,21 @@ async def test_setup_and_services(hass: HomeAssistant, aioclient_mock, hass_clie
     await hass.async_block_till_done()
     assert float(val("charging_sessions").state) == 2
     assert "sessions" in val("last_charging_session").attributes
+
+
+async def test_options_flow(hass: HomeAssistant, aioclient_mock):
+    mock_evcc(aioclient_mock)
+    entry = MockConfigEntry(domain=DOMAIN, title="EV Ladebuch", data={"url": URL},
+        options={"fuel_consumption": 6.0, "fuel_price": 1.8, "start_odometer": 10, "scan_interval": 5})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {
+        "vehicles": [], "battery_capacity": 77, "wltp_consumption": 16.6, "fuel_type": "diesel",
+        "fuel_consumption": 6.0, "fuel_price": 1.8, "start_odometer": 10, "grid_co2": 380, "scan_interval": 5})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    st = hass.states.get("sensor.ev_ladebuch_deviation_from_wltp")
+    assert st is not None and st.state not in ("unknown", "unavailable")
