@@ -33,7 +33,7 @@ async def test_config_flow(hass: HomeAssistant, aioclient_mock):
     assert result["options"]["fuel_price"] == 1.8
 
 
-async def test_setup_and_services(hass: HomeAssistant, aioclient_mock):
+async def test_setup_and_services(hass: HomeAssistant, aioclient_mock, hass_client):
     hass.config.currency = "EUR"
     mock_evcc(aioclient_mock)
     entry = MockConfigEntry(domain=DOMAIN, title="EV Ladebuch", data={"url": URL}, options={
@@ -70,6 +70,25 @@ async def test_setup_and_services(hass: HomeAssistant, aioclient_mock):
 
     resp = await hass.services.async_call(DOMAIN, "list_sessions", {}, blocking=True, return_response=True)
     assert len(resp["sessions"]) == 3
+    assert resp["odometer"] == 2000
+
+    # back-dated session gets no odometer, a "now" session does
+    from homeassistant.util import dt as dt_util
+    r1 = await hass.services.async_call(DOMAIN, "add_session", {"location": "Old", "energy": 5, "cost": 2,
+        "date": "2026-01-01 10:00:00"}, blocking=True, return_response=True)
+    assert r1["session"]["odometer"] is None
+    r2 = await hass.services.async_call(DOMAIN, "add_session", {"location": "Now", "energy": 5, "cost": 2,
+        "date": dt_util.now().strftime("%Y-%m-%d %H:%M:%S")}, blocking=True, return_response=True)
+    assert r2["session"]["odometer"] == 2000
+    for r in (r1, r2):
+        await hass.services.async_call(DOMAIN, "delete_session", {"session_id": r["session"]["id"]}, blocking=True)
+    await hass.async_block_till_done()
+
+    # card is served
+    client = await hass_client()
+    card = await client.get("/ev_charge_log/ev-charge-log-card.js")
+    assert card.status == 200
+    assert "ev-charge-log-card" in await card.text()
     months = {m["month"]: m for m in resp["monthly"]}
     assert months["2026-09"]["km"] == 1000
     assert months["2026-10"]["km"] == 1000  # 2000 (lidl reading) - 1000

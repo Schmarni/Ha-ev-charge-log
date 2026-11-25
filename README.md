@@ -46,7 +46,21 @@ Settings → Devices & services → Add integration → **EV Charge Log**
 | Odometer at start | distance is counted from this value (0 = from new) |
 | Vehicle filter | optional, comma separated parts of evcc vehicle names |
 
-## Logging a public charging session
+## Form card
+
+The integration ships a dashboard card and loads it automatically – no resource to add:
+
+```yaml
+type: custom:ev-charge-log-card
+title: Ladevorgang unterwegs   # optional
+show_list: true                # optional, list of logged sessions with edit/delete
+list_limit: 10                 # optional
+default_charge_type: DC        # optional
+```
+
+![card](docs/card.png)
+
+## Logging a public charging session via action
 
 ```yaml
 action: ev_charge_log.add_session

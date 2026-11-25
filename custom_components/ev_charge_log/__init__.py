@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import (
@@ -22,6 +25,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -119,8 +123,22 @@ def _to_session(data: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+CARD_URL = f"/{DOMAIN}/ev-charge-log-card.js"
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Serve the form card and load it in every dashboard automatically."""
+    integration = await async_get_integration(hass, DOMAIN)
+    path = Path(__file__).parent / "frontend" / "ev-charge-log-card.js"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(path), cache_headers=False)]
+    )
+    add_extra_js_url(hass, f"{CARD_URL}?v={integration.version}")
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register services."""
+    """Register services and the dashboard card."""
+    await _async_register_card(hass)
 
     async def add_session(call: ServiceCall) -> ServiceResponse:
         coord = _coordinator(hass, call)
@@ -136,9 +154,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             **_to_session(call.data),
         }
         # only assume the current odometer for sessions logged "now" (not back-dated)
-        stored = await coord.async_add_session(
-            session, default_odometer=ATTR_DATE not in call.data
-        )
+        default_odometer = True
+        if ATTR_DATE in call.data:
+            date: datetime = call.data[ATTR_DATE]
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=dt_util.get_default_time_zone())
+            default_odometer = abs(dt_util.now() - date) < timedelta(hours=12)
+        stored = await coord.async_add_session(session, default_odometer=default_odometer)
         return {"session": stored}
 
     async def update_session(call: ServiceCall) -> ServiceResponse:
@@ -168,6 +190,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         return {
             "sessions": coord.all_sessions(),
             "monthly": stats.monthly if stats else [],
+            "odometer": coord.last_odometer,
         }
 
     hass.services.async_register(
