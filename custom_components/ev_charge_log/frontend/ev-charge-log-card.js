@@ -10,7 +10,7 @@
  *   config_entry_id: abc123        # optional, fixes the car when several are set up
  */
 
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.4.1";
 const DOMAIN = "ev_charge_log";
 
 const I18N = {
@@ -132,7 +132,13 @@ class EvChargeLogCard extends HTMLElement {
     }
     const active = this._findActive();
     const key = active ? `${active.start}|${active.location || ""}` : "";
-    if (key !== this._activeKey) this._render();
+    if (key !== this._activeKey) {
+      if (active && !this._editing && !this._dateTouched) {
+        const el = this.shadowRoot.getElementById("date");
+        if (el) el.value = toLocalInput(new Date(active.start));
+      }
+      this._render();
+    }
   }
 
   connectedCallback() {
@@ -304,7 +310,15 @@ class EvChargeLogCard extends HTMLElement {
         await this._callService("update_session", { session_id: this._editing.id, ...data });
         this._toast(this._t.updated);
       } else {
+        // a running timer belongs to this session: take start + duration over, then stop it
+        const running = this._findActive();
+        if (running) {
+          const start = new Date(running.start);
+          if (data.duration == null) data.duration = Math.max(1, Math.round((Date.now() - start.getTime()) / 60000));
+          if (!this._dateTouched) data.date = `${toLocalInput(start).replace("T", " ")}:00`;
+        }
         await this._callService("add_session", data);
+        if (running) await this._callService("cancel_timer", {});
         this._toast(this._t.saved);
       }
       this._editing = null;
@@ -380,9 +394,12 @@ class EvChargeLogCard extends HTMLElement {
           note: s.note ?? "",
         };
       }
+      const running = this._findActive();
+      this._dateTouched = false;
       const base = {
-        location: "", energy: "", cost: "", type: this._config.default_charge_type || "",
-        duration: "", waiting: "", date: toLocalInput(new Date()), odometer: "", note: "",
+        location: running?.location || "", energy: "", cost: "", type: this._config.default_charge_type || "",
+        duration: "", waiting: "", date: toLocalInput(running ? new Date(running.start) : new Date()),
+        odometer: "", note: "",
       };
       const prefill = this._prefill;
       this._prefill = null;
@@ -594,6 +611,7 @@ class EvChargeLogCard extends HTMLElement {
       })
     );
     for (const id of ["energy", "cost"]) root.getElementById(id).addEventListener("input", () => this._updatePrice());
+    root.getElementById("date").addEventListener("input", () => { this._dateTouched = true; });
     root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => this._edit(b.dataset.edit)));
     root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => this._delete(b.dataset.del)));
     this._updatePrice();

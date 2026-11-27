@@ -69,7 +69,7 @@ default_charge_type: DC        # optional
 
 Tap **Start charging** when you plug in at a public charger. The start time is stored in Home Assistant,
 so the timer keeps running when you close the app or switch devices. **Stop** fills in date and charging
-time – just add kWh and cost from the receipt and save.
+time – just add kWh and cost from the receipt and save. You can also skip **Stop** and press **Save** directly: a running timer is taken over and stopped automatically.
 
 The timer is also available as `binary_sensor.<name>_public_charging_running` (attributes `start`, `location`)
 and as actions `ev_charge_log.start_timer`, `stop_timer` (returns start and duration) and `cancel_timer` –
