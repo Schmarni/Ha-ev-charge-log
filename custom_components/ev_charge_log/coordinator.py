@@ -7,8 +7,10 @@ import logging
 from typing import Any
 import uuid
 
+from collections.abc import Callable
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -71,6 +73,8 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
         self.manual_sessions: list[dict[str, Any]] = []
         self.evcc_sessions: list[dict[str, Any]] = []
         self.last_odometer: float | None = None
+        self.active: dict[str, Any] | None = None
+        self._active_listeners: list[Callable[[], None]] = []
         self.evcc_available = False
 
     # ------------------------------------------------------------------ options
@@ -94,10 +98,15 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
         data = await self._store.async_load() or {}
         self.manual_sessions = data.get("sessions", [])
         self.last_odometer = data.get("last_odometer")
+        self.active = data.get("active")
 
     async def _async_save(self) -> None:
         await self._store.async_save(
-            {"sessions": self.manual_sessions, "last_odometer": self.last_odometer}
+            {
+                "sessions": self.manual_sessions,
+                "last_odometer": self.last_odometer,
+                "active": self.active,
+            }
         )
 
     # ------------------------------------------------------------------ update
@@ -221,6 +230,51 @@ class EvChargeLogCoordinator(DataUpdateCoordinator[Stats]):
         self.manual_sessions.remove(session)
         await self._async_save()
         self.recompute()
+        return True
+
+    # ------------------------------------------------------------------ charging timer
+    @callback
+    def async_add_active_listener(self, update: Callable[[], None]) -> Callable[[], None]:
+        self._active_listeners.append(update)
+        return lambda: self._active_listeners.remove(update)
+
+    def _notify_active(self) -> None:
+        for update in list(self._active_listeners):
+            update()
+
+    async def async_start_timer(self, location: str | None) -> dict[str, Any]:
+        """Remember that a public charging session has started (persists restarts)."""
+        if self.active is None:
+            self.active = {"start": dt_util.now().isoformat(timespec="seconds"), "location": location}
+        elif location:
+            self.active["location"] = location
+        await self._async_save()
+        self._notify_active()
+        return dict(self.active)
+
+    async def async_stop_timer(self) -> dict[str, Any] | None:
+        """End the running timer and return start + duration in minutes."""
+        if self.active is None:
+            return None
+        start = dt_util.parse_datetime(self.active["start"])
+        result = {
+            **self.active,
+            "end": dt_util.now().isoformat(timespec="seconds"),
+            "duration": max(round((dt_util.now() - start).total_seconds() / 60), 1)
+            if start
+            else None,
+        }
+        self.active = None
+        await self._async_save()
+        self._notify_active()
+        return result
+
+    async def async_cancel_timer(self) -> bool:
+        if self.active is None:
+            return False
+        self.active = None
+        await self._async_save()
+        self._notify_active()
         return True
 
     def all_sessions(self) -> list[dict[str, Any]]:

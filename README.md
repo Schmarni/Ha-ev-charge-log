@@ -65,6 +65,16 @@ default_charge_type: DC        # optional
 
 <img src="docs/card.png" width="360" alt="EV Charge Log card">
 
+### Charging timer
+
+Tap **Start charging** when you plug in at a public charger. The start time is stored in Home Assistant,
+so the timer keeps running when you close the app or switch devices. **Stop** fills in date and charging
+time – just add kWh and cost from the receipt and save.
+
+The timer is also available as `binary_sensor.<name>_public_charging_running` (attributes `start`, `location`)
+and as actions `ev_charge_log.start_timer`, `stop_timer` (returns start and duration) and `cancel_timer` –
+e.g. for a notification after 45 minutes at a fast charger.
+
 ## Logging a public charging session via action
 
 ```yaml

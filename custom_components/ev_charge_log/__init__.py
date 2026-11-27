@@ -46,10 +46,13 @@ from .const import (
     SERVICE_DELETE_SESSION,
     SERVICE_LIST_SESSIONS,
     SERVICE_UPDATE_SESSION,
+    SERVICE_START_TIMER,
+    SERVICE_STOP_TIMER,
+    SERVICE_CANCEL_TIMER,
 )
 from .coordinator import EvChargeLogCoordinator
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 type EvChargeLogConfigEntry = ConfigEntry[EvChargeLogCoordinator]
@@ -85,6 +88,9 @@ DELETE_SCHEMA = vol.Schema(
     {vol.Required(ATTR_SESSION_ID): cv.string, vol.Optional(ATTR_ENTRY_ID): cv.string}
 )
 LIST_SCHEMA = vol.Schema({vol.Optional(ATTR_ENTRY_ID): cv.string})
+START_SCHEMA = vol.Schema(
+    {vol.Optional(ATTR_LOCATION): cv.string, vol.Optional(ATTR_ENTRY_ID): cv.string}
+)
 
 
 def _coordinator(hass: HomeAssistant, call: ServiceCall) -> EvChargeLogCoordinator:
@@ -191,10 +197,34 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             "sessions": coord.all_sessions(),
             "monthly": stats.monthly if stats else [],
             "odometer": coord.last_odometer,
+            "active": coord.active,
             "config_entry_id": coord.config_entry.entry_id,
             "title": coord.config_entry.title,
         }
 
+    async def start_timer(call: ServiceCall) -> ServiceResponse:
+        coord = _coordinator(hass, call)
+        return {"active": await coord.async_start_timer(call.data.get(ATTR_LOCATION))}
+
+    async def stop_timer(call: ServiceCall) -> ServiceResponse:
+        coord = _coordinator(hass, call)
+        result = await coord.async_stop_timer()
+        if result is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_timer"
+            )
+        return {"timer": result}
+
+    async def cancel_timer(call: ServiceCall) -> None:
+        await _coordinator(hass, call).async_cancel_timer()
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_START_TIMER, start_timer, START_SCHEMA, SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_STOP_TIMER, stop_timer, LIST_SCHEMA, SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(DOMAIN, SERVICE_CANCEL_TIMER, cancel_timer, LIST_SCHEMA)
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_SESSION, add_session, ADD_SCHEMA, SupportsResponse.OPTIONAL
     )

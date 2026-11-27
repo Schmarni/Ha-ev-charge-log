@@ -224,6 +224,11 @@
       "range_estimate": {
         "name": "Reale Reichweite (voller Akku)"
       }
+    },
+    "binary_sensor": {
+      "timer_running": {
+        "name": "Ladevorgang unterwegs läuft"
+      }
     }
   },
   "services": {
@@ -346,6 +351,40 @@
           "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
         }
       }
+    },
+    "start_timer": {
+      "name": "Lade-Timer starten",
+      "description": "Merkt sich den Beginn eines Ladevorgangs unterwegs.",
+      "fields": {
+        "location": {
+          "name": "Ort",
+          "description": "Wo geladen wurde."
+        },
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    },
+    "stop_timer": {
+      "name": "Lade-Timer beenden",
+      "description": "Beendet den Timer und gibt Startzeit und Ladedauer zurück.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
+    },
+    "cancel_timer": {
+      "name": "Lade-Timer abbrechen",
+      "description": "Verwirft den laufenden Timer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Eintrag",
+          "description": "Nur nötig bei mehreren EV-Ladebuch-Einträgen."
+        }
+      }
     }
   },
   "exceptions": {
@@ -354,6 +393,9 @@
     },
     "unknown_session": {
       "message": "Unbekannter manueller Ladevorgang {id}."
+    },
+    "no_timer": {
+      "message": "Es läuft kein Lade-Timer."
     }
   }
 }

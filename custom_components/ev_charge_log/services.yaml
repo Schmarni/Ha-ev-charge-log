@@ -149,3 +149,31 @@ list_sessions:
       selector:
         config_entry:
           integration: ev_charge_log
+
+start_timer:
+  fields:
+    location:
+      example: "Lidl Pirna"
+      selector:
+        text:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log
+
+stop_timer:
+  fields:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log
+
+cancel_timer:
+  fields:
+    config_entry_id:
+      advanced: true
+      selector:
+        config_entry:
+          integration: ev_charge_log

@@ -173,3 +173,42 @@ async def test_options_flow(hass: HomeAssistant, aioclient_mock):
     await hass.async_block_till_done()
     st = hass.states.get("sensor.ev_ladebuch_deviation_from_wltp")
     assert st is not None and st.state not in ("unknown", "unavailable")
+
+
+async def test_charging_timer(hass: HomeAssistant, aioclient_mock, freezer):
+    import pytest
+    from homeassistant.exceptions import ServiceValidationError
+    mock_evcc(aioclient_mock)
+    freezer.move_to("2026-11-27 09:00:00+01:00")
+    entry = MockConfigEntry(domain=DOMAIN, title="EV Ladebuch", data={"url": URL},
+        options={"fuel_consumption": 6.0, "fuel_price": 1.8})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    bs = "binary_sensor.ev_ladebuch_public_charging_running"
+    assert hass.states.get(bs).state == "off"
+
+    await hass.services.async_call(DOMAIN, "start_timer", {"location": "Lidl"}, blocking=True)
+    await hass.async_block_till_done()
+    st = hass.states.get(bs)
+    assert st.state == "on" and st.attributes["location"] == "Lidl"
+    assert st.attributes["config_entry_id"] == entry.entry_id
+
+    # survives a reload
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get(bs).state == "on"
+
+    freezer.tick(42 * 60 + 20)
+    resp = await hass.services.async_call(DOMAIN, "stop_timer", {}, blocking=True, return_response=True)
+    assert resp["timer"]["duration"] == 42
+    assert resp["timer"]["location"] == "Lidl"
+    await hass.async_block_till_done()
+    assert hass.states.get(bs).state == "off"
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "stop_timer", {}, blocking=True, return_response=True)
+
+    await hass.services.async_call(DOMAIN, "start_timer", {}, blocking=True)
+    await hass.services.async_call(DOMAIN, "cancel_timer", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get(bs).state == "off"

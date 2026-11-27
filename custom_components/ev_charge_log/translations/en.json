@@ -224,6 +224,11 @@
       "range_estimate": {
         "name": "Real range (full battery)"
       }
+    },
+    "binary_sensor": {
+      "timer_running": {
+        "name": "Public charging running"
+      }
     }
   },
   "services": {
@@ -346,6 +351,40 @@
           "description": "Only needed with more than one EV Charge Log."
         }
       }
+    },
+    "start_timer": {
+      "name": "Start charging timer",
+      "description": "Remembers the start of a public charging session.",
+      "fields": {
+        "location": {
+          "name": "Location",
+          "description": "Where you charged."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    },
+    "stop_timer": {
+      "name": "Stop charging timer",
+      "description": "Ends the timer and returns start time and charging time.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
+    },
+    "cancel_timer": {
+      "name": "Cancel charging timer",
+      "description": "Discards the running timer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one EV Charge Log."
+        }
+      }
     }
   },
   "exceptions": {
@@ -354,6 +393,9 @@
     },
     "unknown_session": {
       "message": "Unknown manual session {id}."
+    },
+    "no_timer": {
+      "message": "No charging timer is running."
     }
   }
 }

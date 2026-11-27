@@ -10,7 +10,7 @@
  *   config_entry_id: abc123        # optional, fixes the car when several are set up
  */
 
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.4.0";
 const DOMAIN = "ev_charge_log";
 
 const I18N = {
@@ -44,6 +44,13 @@ const I18N = {
     show_less: "Weniger anzeigen",
     error: "Fehler",
     vehicle: "Fahrzeug",
+    start: "Ladevorgang starten",
+    stop: "Beenden",
+    abort: "Timer verwerfen",
+    running: "Lädt seit",
+    started: "Lade-Timer gestartet",
+    stopped: "Ladedauer übernommen – jetzt kWh und Kosten eintragen",
+    confirm_abort: "Laufenden Timer verwerfen?",
   },
   en: {
     title: "Public charging",
@@ -75,6 +82,13 @@ const I18N = {
     show_less: "Show less",
     error: "Error",
     vehicle: "Vehicle",
+    start: "Start charging",
+    stop: "Stop",
+    abort: "Discard timer",
+    running: "Charging for",
+    started: "Charging timer started",
+    stopped: "Charging time taken over – now enter kWh and cost",
+    confirm_abort: "Discard the running timer?",
   },
 };
 
@@ -114,6 +128,81 @@ class EvChargeLogCard extends HTMLElement {
     if (first) {
       this._render();
       this._load();
+      return;
+    }
+    const active = this._findActive();
+    const key = active ? `${active.start}|${active.location || ""}` : "";
+    if (key !== this._activeKey) this._render();
+  }
+
+  connectedCallback() {
+    this._tick = setInterval(() => this._updateTimer(), 1000);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._tick);
+  }
+
+  _findActive() {
+    if (!this._hass) return null;
+    const entry = this._config.config_entry_id || this._entryId;
+    for (const st of Object.values(this._hass.states)) {
+      if (!st.entity_id.startsWith("binary_sensor.")) continue;
+      const a = st.attributes || {};
+      if (!("config_entry_id" in a) || !("start" in a)) continue;
+      if (entry && a.config_entry_id !== entry) continue;
+      return st.state === "on" && a.start ? { start: a.start, location: a.location } : null;
+    }
+    return null;
+  }
+
+  _elapsed(start) {
+    const sec = Math.max(0, Math.floor((Date.now() - new Date(start).getTime()) / 1000));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return `${h}:${pad(m)}:${pad(s)}`;
+  }
+
+  _updateTimer() {
+    const el = this.shadowRoot?.getElementById("elapsed");
+    if (el && this._active) el.textContent = this._elapsed(this._active.start);
+  }
+
+  async _startTimer() {
+    try {
+      const location = this._val("location");
+      await this._callService("start_timer", location ? { location } : {});
+      this._toast(this._t.started);
+    } catch (err) {
+      this._showError(`${this._t.error}: ${err?.message || err}`);
+    }
+  }
+
+  async _stopTimer() {
+    try {
+      const res = await this._callService("stop_timer", {}, true);
+      const timer = res?.timer || {};
+      this._editing = null;
+      this._prefill = {
+        location: this._val("location") || timer.location || "",
+        date: timer.start ? toLocalInput(new Date(timer.start)) : toLocalInput(new Date()),
+        duration: timer.duration ?? "",
+      };
+      this._clearForm = true;
+      this._expanded = true;
+      this._toast(this._t.stopped);
+      this._render();
+      this.shadowRoot.getElementById(this._prefill?.location ? "energy" : "location")?.focus();
+    } catch (err) {
+      this._showError(`${this._t.error}: ${err?.message || err}`);
+    }
+  }
+
+  async _abortTimer() {
+    if (!window.confirm(this._t.confirm_abort)) return;
+    try {
+      await this._callService("cancel_timer", {});
+    } catch (err) {
+      this._showError(`${this._t.error}: ${err?.message || err}`);
     }
   }
 
@@ -291,10 +380,13 @@ class EvChargeLogCard extends HTMLElement {
           note: s.note ?? "",
         };
       }
-      return {
+      const base = {
         location: "", energy: "", cost: "", type: this._config.default_charge_type || "",
         duration: "", waiting: "", date: toLocalInput(new Date()), odometer: "", note: "",
       };
+      const prefill = this._prefill;
+      this._prefill = null;
+      return prefill ? { ...base, ...prefill } : base;
     }
     const v = {};
     for (const id of ["location", "energy", "cost", "duration", "waiting", "date", "odometer", "note"]) v[id] = this._val(id);
@@ -313,6 +405,20 @@ class EvChargeLogCard extends HTMLElement {
     const v = this._formValues();
     if (this._editing) this._editingRendered = this._editing.id;
     else this._editingRendered = null;
+
+    this._active = this._findActive();
+    this._activeKey = this._active ? `${this._active.start}|${this._active.location || ""}` : "";
+    const timerBlock = this._active
+      ? `<div class="timer running">
+           <div class="timer-info">
+             <span class="pulse"></span>
+             <div><div class="timer-label">${t.running}${this._active.location ? ` · ${esc(this._active.location)}` : ""}</div>
+             <div class="timer-value" id="elapsed">${this._elapsed(this._active.start)}</div></div>
+           </div>
+           <button class="btn stop" id="stoptimer">■ ${t.stop}</button>
+           <button class="icon" id="aborttimer" title="${t.abort}">✕</button>
+         </div>`
+      : (this._editing ? "" : `<button class="btn outline" id="starttimer">▶ ${t.start}</button>`);
 
     const locations = [...new Set(this._sessions.map((s) => s.location).filter(Boolean))];
     const sorted = [...this._sessions].sort((a, b) => (b.start || "").localeCompare(a.start || ""));
@@ -347,6 +453,18 @@ class EvChargeLogCard extends HTMLElement {
         label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--secondary-text-color); }
         .inp { position: relative; display: flex; align-items: center; }
         .vehicle { margin-bottom: 12px; }
+        .btn.outline { width: 100%; margin-bottom: 14px; background: transparent; color: var(--primary-color);
+                       border: 1px solid var(--primary-color); }
+        .timer { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 10px 12px;
+                 border-radius: 12px; background: rgba(var(--rgb-success-color, 76,175,80), .15);
+                 border: 1px solid var(--success-color, #4caf50); }
+        .timer-info { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .timer-label { font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .timer-value { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--primary-text-color); }
+        .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--success-color, #4caf50);
+                 animation: pulse 1.6s infinite; flex: 0 0 auto; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,.6); } 70% { box-shadow: 0 0 0 10px rgba(76,175,80,0); } 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0); } }
+        .btn.stop { flex: 0 0 auto; padding: 10px 14px; background: var(--error-color, #db4437); }
         input, textarea, select {
           width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
           padding: 10px 12px; border-radius: 8px;
@@ -390,6 +508,7 @@ class EvChargeLogCard extends HTMLElement {
           <h2>${esc(this._config.title || t.title)}</h2>
           ${this._editing ? `<span class="badge">${t.editing}</span>` : ""}
         </div>
+        ${timerBlock}
         ${this._entries.length > 1 && !this._config.config_entry_id ? `
         <label class="full vehicle">${t.vehicle}
           <select id="entry">${this._entries.map((e) => `<option value="${esc(e.entry_id)}" ${e.entry_id === this._entryId ? "selected" : ""}>${esc(e.title)}</option>`).join("")}</select>
@@ -449,6 +568,9 @@ class EvChargeLogCard extends HTMLElement {
 
     const root = this.shadowRoot;
     root.getElementById("save").addEventListener("click", () => this._save());
+    root.getElementById("starttimer")?.addEventListener("click", () => this._startTimer());
+    root.getElementById("stoptimer")?.addEventListener("click", () => this._stopTimer());
+    root.getElementById("aborttimer")?.addEventListener("click", () => this._abortTimer());
     root.getElementById("entry")?.addEventListener("change", (ev) => {
       this._entryId = ev.target.value;
       this._editing = null;
