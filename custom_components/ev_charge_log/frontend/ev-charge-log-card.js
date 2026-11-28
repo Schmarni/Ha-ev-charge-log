@@ -10,7 +10,7 @@
  *   config_entry_id: abc123        # optional, fixes the car when several are set up
  */
 
-const CARD_VERSION = "0.4.1";
+const CARD_VERSION = "0.5.0";
 const DOMAIN = "ev_charge_log";
 
 const I18N = {
@@ -245,8 +245,11 @@ class EvChargeLogCard extends HTMLElement {
   async _loadEntries() {
     if (this._config.config_entry_id) return;
     try {
-      const entries = await this._hass.callWS({ type: "config_entries/get", domain: DOMAIN });
-      this._entries = (entries || []).filter((e) => e.state === "loaded");
+      this._entries = (await collectEvChargeLogEntities(this._hass)).map((g) => g.entry);
+      if (!this._entries.length) {
+        const entries = await this._hass.callWS({ type: "config_entries/get", domain: DOMAIN });
+        this._entries = (entries || []).filter((e) => e.state === "loaded");
+      }
       if (!this._entryId && this._entries.length) this._entryId = this._entries[0].entry_id;
     } catch (err) {
       this._entries = [];
@@ -628,4 +631,193 @@ if (!customElements.get("ev-charge-log-card")) {
     preview: false,
   });
   console.info(`%c EV-CHARGE-LOG-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4");
+}
+
+/*
+ * Dashboard strategy: builds a complete EV Charge Log dashboard from the
+ * integration's entities (any language, any vehicle name, one tab per car).
+ *
+ *   strategy:
+ *     type: custom:ev-charge-log
+ */
+const STRAT_I18N = {
+  de: {
+    vs: "{car} vs. Verbrenner", savings: "Ersparnis gesamt", per100: "Strom / 100 km", fuelPer100: "{fuel} / 100 km",
+    costTotal: "Strom gesamt", fuelCost: "{fuel} wäre", distance: "Strecke", consumption: "Ø Verbrauch",
+    price: "Ø Strompreis", sessions: "Ladevorgänge", wltp: "Verbrauch ggü. WLTP", range: "Reale Reichweite",
+    month: "Diesen Monat", year: "Dieses Jahr", saved: "Ersparnis", cost: "Kosten", energy: "Energie",
+    homeVsAway: "Daheim vs. unterwegs", eHome: "Energie daheim", eAway: "Energie unterwegs", cHome: "Kosten daheim",
+    cAway: "Kosten unterwegs", pHome: "Ø Preis daheim", pAway: "Ø Preis unterwegs", tAway: "Ladezeit unterwegs",
+    wAway: "Wartezeit unterwegs", env: "Umwelt", co2Saved: "CO₂-Ersparnis", co2Ev: "CO₂ E-Auto",
+    co2Fuel: "CO₂ {fuel} wäre", solar: "Solaranteil daheim", monthly: "Monatsübersicht", recent: "Letzte Ladevorgänge",
+    diesel: "Diesel", petrol: "Benzin", title: "EV-Ladebuch", empty: "Keine EV-Charge-Log-Einträge gefunden.",
+    mCols: "| Monat | km | kWh | davon unterwegs | Kosten | {fuel} wäre | Ersparnis | kWh/100 km |",
+    rCols: "| | Datum | Ort | kWh | Kosten | €/kWh | km | ☀️ |",
+    legend: "🏠 = daheim (evcc) · ⚡ = unterwegs",
+    months: "['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']",
+  },
+  en: {
+    vs: "{car} vs. fuel car", savings: "Total savings", per100: "Electricity / 100 km", fuelPer100: "{fuel} / 100 km",
+    costTotal: "Electricity total", fuelCost: "{fuel} would be", distance: "Distance", consumption: "Ø consumption",
+    price: "Ø price", sessions: "Charging sessions", wltp: "Consumption vs. WLTP", range: "Real range",
+    month: "This month", year: "This year", saved: "Savings", cost: "Cost", energy: "Energy",
+    homeVsAway: "Home vs. public", eHome: "Energy at home", eAway: "Energy public", cHome: "Cost at home",
+    cAway: "Cost public", pHome: "Ø price at home", pAway: "Ø price public", tAway: "Charging time public",
+    wAway: "Waiting time public", env: "Environment", co2Saved: "CO₂ savings", co2Ev: "CO₂ electric car",
+    co2Fuel: "CO₂ {fuel} would be", solar: "Solar share at home", monthly: "Monthly overview", recent: "Recent charging sessions",
+    diesel: "Diesel", petrol: "Petrol", title: "EV Charge Log", empty: "No EV Charge Log entries found.",
+    mCols: "| Month | km | kWh | public | Cost | {fuel} | Savings | kWh/100 km |",
+    rCols: "| | Date | Location | kWh | Cost | €/kWh | km | ☀️ |",
+    legend: "🏠 = home (evcc) · ⚡ = public",
+    months: "['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']",
+  },
+};
+
+const fmt = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+
+function buildEvChargeLogView(hass, entry, ids, lang) {
+  const T = STRAT_I18N[lang] || STRAT_I18N.en;
+  const fuelFactor = hass.states[ids.co2_fuel]?.attributes?.kg_co2_per_litre;
+  const fuel = fuelFactor && fuelFactor < 2.5 ? T.petrol : T.diesel;
+  const v = { car: entry.title, fuel };
+  const tile = (key, name, icon, columns = 6, color) =>
+    ids[key]
+      ? { type: "tile", entity: ids[key], name: fmt(name, v), icon: `mdi:${icon}`, grid_options: { columns }, ...(color ? { color } : {}) }
+      : null;
+  const head = (text, icon) => ({ type: "heading", heading: fmt(text, v), icon: `mdi:${icon}`, grid_options: { columns: "full" } });
+
+  const stats = [
+    head(T.vs, "piggy-bank-outline"),
+    tile("savings", T.savings, "piggy-bank", 12, "green"),
+    tile("cost_per_100km", T.per100, "cash"),
+    tile("fuel_cost_per_100km", T.fuelPer100, "cash-remove"),
+    tile("cost_total", T.costTotal, "lightning-bolt"),
+    tile("fuel_cost", T.fuelCost, "gas-station", 6, "red"),
+    tile("distance", T.distance, "map-marker-distance"),
+    tile("consumption", T.consumption, "speedometer"),
+    tile("price_avg", T.price, "currency-eur"),
+    tile("sessions_total", T.sessions, "counter"),
+    tile("wltp_deviation", T.wltp, "chart-bell-curve-cumulative"),
+    tile("range_estimate", T.range, "map-marker-distance"),
+    head(T.month, "calendar-month"),
+    tile("savings_month", T.saved, "piggy-bank", 6, "green"),
+    tile("cost_month", T.cost, "cash"),
+    tile("energy_month", T.energy, "lightning-bolt"),
+    tile("distance_month", T.distance, "map-marker-distance"),
+    head(T.year, "calendar"),
+    tile("savings_year", T.saved, "piggy-bank", 6, "green"),
+    tile("cost_year", T.cost, "cash"),
+    tile("energy_year", T.energy, "lightning-bolt"),
+    head(T.homeVsAway, "home-lightning-bolt"),
+    tile("energy_home", T.eHome, "home-lightning-bolt"),
+    tile("energy_external", T.eAway, "ev-station"),
+    tile("cost_home", T.cHome, "home"),
+    tile("cost_external", T.cAway, "ev-station"),
+    tile("price_avg_home", T.pHome, "currency-eur"),
+    tile("price_avg_external", T.pAway, "currency-eur"),
+    tile("charging_time_external", T.tAway, "timer-outline"),
+    tile("waiting_time", T.wAway, "timer-sand"),
+    head(T.env, "leaf"),
+    tile("co2_savings", T.co2Saved, "leaf", 6, "green"),
+    tile("co2_ev", T.co2Ev, "molecule-co2"),
+    tile("co2_fuel", T.co2Fuel, "molecule-co2", 6, "red"),
+    tile("solar_share_home", T.solar, "solar-power", 6, "amber"),
+  ].filter(Boolean);
+
+  const num = (expr, d) => `'%.${d}f' | format(${expr}) | replace('.', ',')`;
+  const sections = [
+    { type: "grid", column_span: 2, cards: stats },
+    { type: "grid", cards: [{ type: "custom:ev-charge-log-card", config_entry_id: entry.entry_id, show_list: true, list_limit: 8 }] },
+  ];
+  if (ids.monthly_overview) {
+    sections.push({
+      type: "grid", column_span: 3,
+      cards: [
+        head(T.monthly, "table"),
+        {
+          type: "markdown", grid_options: { columns: "full" },
+          content:
+            `${fmt(T.mCols, v)}\n|:--|--:|--:|--:|--:|--:|--:|--:|\n` +
+            `{% set mn = ${T.months} -%}\n` +
+            `{% for m in (state_attr('${ids.monthly_overview}','months') or []) | reverse -%}\n` +
+            `{% set p = m.month.split('-') -%}\n` +
+            `| **{{ mn[p[1]|int - 1] }} {{ p[0] }}** | {{ m.km if m.km is not none else '–' }} | {{ ${num("m.energy", 1)} }} | {{ ${num("m.energy_external", 1)} }} | {{ ${num("m.cost", 2)} }} € | {{ (${num("m.fuel_cost", 2)}) ~ ' €' if m.fuel_cost is not none else '–' }} | **{{ (${num("m.savings", 2)}) ~ ' €' if m.savings is not none else '–' }}** | {{ (${num("m.consumption", 1)}) if m.consumption is not none else '–' }} |\n` +
+            `{% endfor %}`,
+        },
+      ],
+    });
+  }
+  if (ids.last_session) {
+    sections.push({
+      type: "grid", column_span: 3,
+      cards: [
+        head(T.recent, "history"),
+        {
+          type: "markdown", grid_options: { columns: "full" },
+          content:
+            `${T.rCols}\n|:-:|:--|:--|--:|--:|--:|--:|--:|\n` +
+            `{% for s in (state_attr('${ids.last_session}','sessions') or [])[:15] -%}\n` +
+            `{% set d = as_datetime(s.date) -%}\n` +
+            `| {{ '🏠' if s.source == 'evcc' else '⚡' }} | {{ d.strftime('%d.%m.%y %H:%M') }} | {{ s.location }} | {{ ${num("s.energy", 1)} }} | {{ (${num("s.cost", 2)}) ~ ' €' if s.cost is not none else '–' }} | {{ (${num("s.price_per_kwh", 3)}) if s.price_per_kwh is not none else '–' }} | {{ s.odometer | int if s.odometer else '–' }} | {{ (s.solar_percentage | round(0) | int) ~ ' %' if s.solar_percentage is not none else '' }} |\n` +
+            `{% endfor %}\n${T.legend}`,
+        },
+      ],
+    });
+  }
+  return { title: entry.title, path: entry.entry_id.toLowerCase().slice(-8), icon: "mdi:ev-station", type: "sections", max_columns: 3, sections };
+}
+
+async function collectEvChargeLogEntities(hass) {
+  // hass.entities / hass.devices work for non-admin users too (no registry WS calls)
+  const groups = {};
+  for (const ent of Object.values(hass.entities || {})) {
+    if (ent.platform !== DOMAIN || !ent.translation_key || ent.hidden) continue;
+    const device = hass.devices?.[ent.device_id];
+    const entryId = device?.config_entries?.[0];
+    if (!entryId) continue;
+    const g = (groups[entryId] ||= {
+      entry: { entry_id: entryId, title: device.name_by_user || device.name || "EV" },
+      ids: {},
+    });
+    g.ids[ent.translation_key] = ent.entity_id;
+  }
+  return Object.values(groups).sort((a, b) => a.entry.title.localeCompare(b.entry.title));
+}
+
+class EvChargeLogDashboardStrategy {
+  static async generate(config, hass) {
+    const lang = (hass.locale?.language || hass.language || "en").split("-")[0];
+    const T = STRAT_I18N[lang] || STRAT_I18N.en;
+    const items = await collectEvChargeLogEntities(hass);
+    if (!items.length) {
+      return { title: T.title, views: [{ title: T.title, cards: [{ type: "markdown", content: T.empty }] }] };
+    }
+    return { title: T.title, views: items.map(({ entry, ids }) => buildEvChargeLogView(hass, entry, ids, lang)) };
+  }
+}
+
+class EvChargeLogViewStrategy {
+  static async generate(config, hass) {
+    const lang = (hass.locale?.language || hass.language || "en").split("-")[0];
+    const items = await collectEvChargeLogEntities(hass);
+    const item = items.find((i) => i.entry.entry_id === config.config_entry_id) || items[0];
+    if (!item) return { cards: [{ type: "markdown", content: (STRAT_I18N[lang] || STRAT_I18N.en).empty }] };
+    const { title, path, icon, ...view } = buildEvChargeLogView(hass, item.entry, item.ids, lang);
+    return view;
+  }
+}
+
+if (!customElements.get("ll-strategy-dashboard-ev-charge-log")) {
+  customElements.define("ll-strategy-dashboard-ev-charge-log", class extends HTMLElement {});
+  customElements.get("ll-strategy-dashboard-ev-charge-log").generate = EvChargeLogDashboardStrategy.generate;
+  customElements.define("ll-strategy-view-ev-charge-log", class extends HTMLElement {});
+  customElements.get("ll-strategy-view-ev-charge-log").generate = EvChargeLogViewStrategy.generate;
+  window.customStrategies = window.customStrategies || [];
+  window.customStrategies.push({
+    type: "ev-charge-log",
+    strategyType: "dashboard",
+    name: "EV Charge Log",
+    description: "Ladebuch mit Kosten, Verbrauch und Verbrenner-Vergleich – automatisch für alle Fahrzeuge",
+    documentationURL: "https://github.com/Schmarni/Ha-ev-charge-log",
+  });
 }

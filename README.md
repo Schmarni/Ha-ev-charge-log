@@ -51,6 +51,31 @@ Several cars? Add the integration once per car and pick the matching evcc vehicl
 
 New in 0.3: CO₂ of the EV and of the comparison car, CO₂ savings, deviation from WLTP, real range on a full battery.
 
+## Ready-made dashboard
+
+The integration ships a dashboard template that finds its own sensors – whatever language or vehicle name you use,
+with one tab per car:
+
+1. Settings → Dashboards → **Add dashboard** → choose **EV Charge Log**
+2. Done.
+
+If your Home Assistant does not list it, create an empty dashboard, open ⋮ → *Edit* → ⋮ → *Raw configuration editor* and enter:
+
+```yaml
+strategy:
+  type: custom:ev-charge-log
+```
+
+To change the layout, use ⋮ → *Take control* – the dashboard then becomes a normal, editable dashboard.
+A single tab can also be added to an existing dashboard as a view strategy:
+
+```yaml
+views:
+  - strategy:
+      type: custom:ev-charge-log
+      config_entry_id: <optional, entry of the car>
+```
+
 ## Form card
 
 The integration ships a dashboard card and loads it automatically – no resource to add:
